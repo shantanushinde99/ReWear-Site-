@@ -6,13 +6,14 @@ export interface User {
   points: number;
   joinDate: string;
   avatar?: string;
+  preferredMeetingPlace?: string;
 }
 
 export interface ClothingItem {
   id: string;
   title: string;
   description: string;
-  category: 'tops' | 'pants' | 'outerwear' | 'dresses' | 'accessories' | 'shoes';
+  category: 'all' | 'women' | 'men' | 'kids' | 'accessories' | 'shoes';
   type: 'men' | 'women' | 'unisex' | 'kids';
   size: string;
   condition: 'new' | 'like-new' | 'gently-used' | 'well-worn';
@@ -24,6 +25,31 @@ export interface ClothingItem {
   pointsValue: number;
   createdAt: string;
   featured?: boolean;
+}
+
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  senderName: string;
+  message: string;
+  timestamp: string;
+  type: 'text' | 'system';
+}
+
+export interface Chat {
+  id: string;
+  itemId: string;
+  itemTitle: string;
+  itemImage: string;
+  sellerId: string;
+  sellerName: string;
+  buyerId: string;
+  buyerName: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  unreadCount: number;
+  createdAt: string;
 }
 
 export interface SwapRequest {
@@ -40,7 +66,16 @@ export interface SwapRequest {
 export interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithGoogle: () => Promise<boolean>;
   signup: (name: string, email: string, password: string, location: string) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  value: string;
+  count: number;
+  icon: string;
 }

@@ -45,6 +45,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return false;
   };
 
+  const loginWithGoogle = async (): Promise<boolean> => {
+    setIsLoading(true);
+    
+    // Simulate Google OAuth flow
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Mock Google user data
+    const googleUser: User = {
+      id: 'google_' + Date.now().toString(),
+      name: 'Google User',
+      email: 'user@gmail.com',
+      location: 'San Francisco, CA',
+      points: 100, // Welcome bonus
+      joinDate: new Date().toISOString().split('T')[0],
+      avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg'
+    };
+    
+    setUser(googleUser);
+    localStorage.setItem('rewear_user', JSON.stringify(googleUser));
+    setIsLoading(false);
+    return true;
+  };
+
   const signup = async (name: string, email: string, password: string, location: string): Promise<boolean> => {
     setIsLoading(true);
     
@@ -74,6 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextType = {
     user,
     login,
+    loginWithGoogle,
     signup,
     logout,
     isLoading

@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
-import { Search, Filter, Grid, List } from 'lucide-react';
-import { mockItems } from '../data/mockData';
+import { Search, Filter, Grid, List, SlidersHorizontal, MapPin, ChevronDown, Star } from 'lucide-react';
+import { mockItems, mockCategories } from '../data/mockData';
 import ItemCard from '../components/Common/ItemCard';
+import Sidebar from '../components/Layout/Sidebar';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface BrowseItemsPageProps {
   setCurrentPage: (page: string) => void;
   setSelectedItem: (item: any) => void;
+  selectedCategory?: string;
 }
 
-const BrowseItemsPage: React.FC<BrowseItemsPageProps> = ({ setCurrentPage, setSelectedItem }) => {
+const BrowseItemsPage: React.FC<BrowseItemsPageProps> = ({ setCurrentPage, setSelectedItem, selectedCategory = 'all' }) => {
+  const { isDarkMode } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [activeCategory, setActiveCategory] = useState(selectedCategory);
   const [selectedType, setSelectedType] = useState('all');
   const [selectedCondition, setSelectedCondition] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [pointsRange, setPointsRange] = useState<[number, number]>([0, 1000]);
 
   const availableItems = mockItems.filter(item => item.status === 'available');
 
@@ -22,11 +29,12 @@ const BrowseItemsPage: React.FC<BrowseItemsPageProps> = ({ setCurrentPage, setSe
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
     const matchesType = selectedType === 'all' || item.type === selectedType;
     const matchesCondition = selectedCondition === 'all' || item.condition === selectedCondition;
+    const matchesPoints = item.pointsValue >= pointsRange[0] && item.pointsValue <= pointsRange[1];
 
-    return matchesSearch && matchesCategory && matchesType && matchesCondition;
+    return matchesSearch && matchesCategory && matchesType && matchesCondition && matchesPoints;
   });
 
   const sortedItems = [...filteredItems].sort((a, b) => {
@@ -39,6 +47,8 @@ const BrowseItemsPage: React.FC<BrowseItemsPageProps> = ({ setCurrentPage, setSe
         return a.pointsValue - b.pointsValue;
       case 'points-high':
         return b.pointsValue - a.pointsValue;
+      case 'popular':
+        return b.featured ? 1 : -1;
       default:
         return 0;
     }
@@ -49,141 +59,192 @@ const BrowseItemsPage: React.FC<BrowseItemsPageProps> = ({ setCurrentPage, setSe
     setCurrentPage('item-detail');
   };
 
-  const categories = ['all', 'tops', 'pants', 'outerwear', 'dresses', 'accessories', 'shoes'];
-  const types = ['all', 'men', 'women', 'unisex', 'kids'];
-  const conditions = ['all', 'new', 'like-new', 'gently-used', 'well-worn'];
+  const sortOptions = [
+    { value: 'newest', label: 'Newest First' },
+    { value: 'oldest', label: 'Oldest First' },
+    { value: 'points-low', label: 'Points: Low to High' },
+    { value: 'points-high', label: 'Points: High to Low' },
+    { value: 'popular', label: 'Most Popular' }
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Items</h1>
-          <p className="text-gray-600">Discover amazing clothing from our community</p>
-        </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="flex">
+        {/* Sidebar */}
+        <Sidebar 
+          isOpen={showSidebar} 
+          onClose={() => setShowSidebar(false)}
+          pointsRange={pointsRange}
+          setPointsRange={setPointsRange}
+        />
 
-        {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
-            {/* Search */}
-            <div className="lg:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500"
-                />
+        {/* Main Content */}
+        <div className="flex-1 lg:ml-0">
+          {/* Header */}
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Browse Items</h1>
+                  <p className="text-gray-600 dark:text-gray-400">Discover amazing clothing from our community</p>
+                </div>
+                
+                <button
+                  onClick={() => setShowSidebar(true)}
+                  className="lg:hidden flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span>Filters</span>
+                </button>
+              </div>
+
+              {/* Category Pills */}
+              <div className="flex items-center space-x-4 mb-6 overflow-x-auto pb-2">
+                {mockCategories.map(category => (
+                  <button
+                    key={category.value}
+                    onClick={() => setActiveCategory(category.value)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      activeCategory === category.value
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {category.icon} {category.name} ({category.count})
+                  </button>
+                ))}
+              </div>
+
+              {/* Search and Controls */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+                {/* Search */}
+                <div className="flex-1 max-w-md">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search items..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Controls */}
+                <div className="flex items-center space-x-4">
+                  {/* Sort Dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowSortDropdown(!showSortDropdown)}
+                      className="flex items-center space-x-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    >
+                      <span>Sort: {sortOptions.find(opt => opt.value === sortBy)?.label}</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+
+                    {showSortDropdown && (
+                      <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+                        {sortOptions.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setSortBy(option.value);
+                              setShowSortDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 first:rounded-t-lg last:rounded-b-lg"
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center space-x-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`p-2 rounded-md transition-colors ${
+                        viewMode === 'grid'
+                          ? 'bg-white dark:bg-gray-600 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      <Grid className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`p-2 rounded-md transition-colors ${
+                        viewMode === 'list'
+                          ? 'bg-white dark:bg-gray-600 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      <List className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
 
-            {/* Category */}
-            <div>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full py-2 px-3 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                {categories.map(category => (
-                  <option key={category} value={category}>
-                    {category === 'all' ? 'All Categories' : category.charAt(0).toUpperCase() + category.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Results */}
+          <div className="p-6">
+            <div className="max-w-7xl mx-auto">
+              {/* Results Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Showing {sortedItems.length} of {availableItems.length} items
+                  </p>
+                  {pointsRange[0] > 0 || pointsRange[1] < 1000 ? (
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                      Filtered by points: {pointsRange[0]} - {pointsRange[1]}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                  <MapPin className="h-4 w-4" />
+                  <span>Mumbai, Maharashtra</span>
+                </div>
+              </div>
 
-            {/* Type */}
-            <div>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full py-2 px-3 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                {types.map(type => (
-                  <option key={type} value={type}>
-                    {type === 'all' ? 'All Types' : type.charAt(0).toUpperCase() + type.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
+              {/* Items Grid/List */}
+              {sortedItems.length > 0 ? (
+                <div className={
+                  viewMode === 'grid' 
+                    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' 
+                    : 'space-y-4'
+                }>
+                  {sortedItems.map((item) => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      onClick={() => handleItemClick(item)}
+                      layout={viewMode}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No items found</h3>
+                  <p className="text-gray-600 dark:text-gray-400">Try adjusting your search or filter criteria</p>
+                </div>
+              )}
 
-            {/* Condition */}
-            <div>
-              <select
-                value={selectedCondition}
-                onChange={(e) => setSelectedCondition(e.target.value)}
-                className="w-full py-2 px-3 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                {conditions.map(condition => (
-                  <option key={condition} value={condition}>
-                    {condition === 'all' ? 'All Conditions' : condition.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Sort */}
-            <div>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full py-2 px-3 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="points-low">Points: Low to High</option>
-                <option value="points-high">Points: High to Low</option>
-              </select>
+              {/* Load More */}
+              {sortedItems.length > 0 && (
+                <div className="text-center mt-12">
+                  <button className="bg-emerald-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
+                    Load More Items
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Results Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="text-gray-600">
-              Showing {sortedItems.length} of {availableItems.length} items
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-md ${viewMode === 'grid' ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <Grid className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-md ${viewMode === 'list' ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <List className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Items Grid */}
-        {sortedItems.length > 0 ? (
-          <div className={viewMode === 'grid' 
-            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' 
-            : 'space-y-4'
-          }>
-            {sortedItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                onClick={() => handleItemClick(item)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
-            <p className="text-gray-600">Try adjusting your search or filter criteria</p>
-          </div>
-        )}
       </div>
     </div>
   );
