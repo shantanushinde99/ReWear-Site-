@@ -43,11 +43,16 @@ const AuthPage: React.FC<AuthPageProps> = ({ setCurrentPage }) => {
 
   const handleGoogleLogin = async () => {
     setError('');
-    const success = await loginWithGoogle();
-    if (success) {
-      setCurrentPage('dashboard');
-    } else {
-      setError('Google sign-in failed. Please try again.');
+    try {
+      const success = await loginWithGoogle();
+      if (success) {
+        setCurrentPage('dashboard');
+      } else {
+        setError('Google sign-in failed. Please enable Google OAuth in your Supabase dashboard.');
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      setError('Google OAuth is not configured. Please set up Google provider in Supabase dashboard or use email/password login.');
     }
   };
 

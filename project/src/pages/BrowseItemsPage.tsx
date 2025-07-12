@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Grid, List, SlidersHorizontal, MapPin, ChevronDown, Star } from 'lucide-react';
-import { mockItems, mockCategories } from '../data/mockData';
+import { categories, sortOptions, itemTypes, itemConditions } from '../constants/categories';
+import { useItems, useSearchItems } from '../hooks/useItems';
 import ItemCard from '../components/Common/ItemCard';
 import Sidebar from '../components/Layout/Sidebar';
 import { useTheme } from '../contexts/ThemeContext';
+import LoadingSpinner from '../components/Common/LoadingSpinner';
 
 interface BrowseItemsPageProps {
   setCurrentPage: (page: string) => void;
@@ -23,18 +25,20 @@ const BrowseItemsPage: React.FC<BrowseItemsPageProps> = ({ setCurrentPage, setSe
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [pointsRange, setPointsRange] = useState<[number, number]>([0, 1000]);
 
-  const availableItems = mockItems.filter(item => item.status === 'available');
+  // Use hooks for data fetching
+  const { items: allItems, loading: itemsLoading, error: itemsError } = useItems(activeCategory === 'all' ? undefined : activeCategory);
+  const { items: searchResults, loading: searchLoading } = useSearchItems(searchTerm, activeCategory === 'all' ? undefined : activeCategory);
+
+  // Use search results if searching, otherwise use all items
+  const availableItems = searchTerm.trim() ? searchResults : allItems;
+  const isLoading = searchTerm.trim() ? searchLoading : itemsLoading;
 
   const filteredItems = availableItems.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
     const matchesType = selectedType === 'all' || item.type === selectedType;
     const matchesCondition = selectedCondition === 'all' || item.condition === selectedCondition;
     const matchesPoints = item.pointsValue >= pointsRange[0] && item.pointsValue <= pointsRange[1];
 
-    return matchesSearch && matchesCategory && matchesType && matchesCondition && matchesPoints;
+    return matchesType && matchesCondition && matchesPoints;
   });
 
   const sortedItems = [...filteredItems].sort((a, b) => {
@@ -100,7 +104,7 @@ const BrowseItemsPage: React.FC<BrowseItemsPageProps> = ({ setCurrentPage, setSe
 
               {/* Category Pills */}
               <div className="flex items-center space-x-4 mb-6 overflow-x-auto pb-2">
-                {mockCategories.map(category => (
+                {categories.map(category => (
                   <button
                     key={category.value}
                     onClick={() => setActiveCategory(category.value)}
@@ -210,29 +214,53 @@ const BrowseItemsPage: React.FC<BrowseItemsPageProps> = ({ setCurrentPage, setSe
                 </div>
               </div>
 
-              {/* Items Grid/List */}
-              {sortedItems.length > 0 ? (
-                <div className={
-                  viewMode === 'grid' 
-                    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' 
-                    : 'space-y-4'
-                }>
-                  {sortedItems.map((item) => (
-                    <ItemCard
-                      key={item.id}
-                      item={item}
-                      onClick={() => handleItemClick(item)}
-                      layout={viewMode}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No items found</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Try adjusting your search or filter criteria</p>
+              {/* Loading State */}
+              {isLoading && (
+                <div className="flex justify-center items-center py-12">
+                  <LoadingSpinner />
                 </div>
               )}
+
+              {/* Error State */}
+              {itemsError && !isLoading && (
+                <div className="text-center py-12">
+                  <p className="text-red-600 dark:text-red-400">{itemsError}</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+
+              {/* Items Grid */}
+              {!isLoading && !itemsError && (
+                  <>
+                    {sortedItems.length === 0 ? (
+                      <div className="text-center py-12">
+                        <p className="text-gray-500 dark:text-gray-400">
+                          {searchTerm.trim() ? 'No items found matching your search.' : 'No items available in this category.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className={
+                        viewMode === 'grid'
+                          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+                          : 'space-y-4'
+                      }>
+                        {sortedItems.map((item) => (
+                          <ItemCard
+                            key={item.id}
+                            item={item}
+                            onClick={() => handleItemClick(item)}
+                            layout={viewMode}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
 
               {/* Load More */}
               {sortedItems.length > 0 && (

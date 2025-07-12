@@ -2,8 +2,10 @@ import React from 'react';
 import { ArrowRight, Recycle, Users, ShoppingBag, Heart, Star, TrendingUp, Award, Globe } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { mockItems, mockCategories } from '../data/mockData';
+import { categories } from '../constants/categories';
+import { useFeaturedItems } from '../hooks/useItems';
 import ItemCard from '../components/Common/ItemCard';
+import LoadingSpinner from '../components/Common/LoadingSpinner';
 
 interface LandingPageProps {
   setCurrentPage: (page: string) => void;
@@ -14,7 +16,7 @@ interface LandingPageProps {
 const LandingPage: React.FC<LandingPageProps> = ({ setCurrentPage, setSelectedItem, setSelectedCategory }) => {
   const { user } = useAuth();
   const { isDarkMode } = useTheme();
-  const featuredItems = mockItems.filter(item => item.featured && item.status === 'available');
+  const { items: featuredItems, loading: featuredLoading, error: featuredError } = useFeaturedItems();
 
   const handleItemClick = (item: any) => {
     setSelectedItem(item);
@@ -116,7 +118,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ setCurrentPage, setSelectedIt
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockCategories.map((category) => (
+            {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => handleCategoryClick(category.value)}
@@ -154,15 +156,38 @@ const LandingPage: React.FC<LandingPageProps> = ({ setCurrentPage, setSelectedIt
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredItems.slice(0, 8).map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                onClick={() => handleItemClick(item)}
-              />
-            ))}
-          </div>
+          {/* Loading State */}
+          {featuredLoading && (
+            <div className="flex justify-center py-12">
+              <LoadingSpinner />
+            </div>
+          )}
+
+          {/* Error State */}
+          {featuredError && !featuredLoading && (
+            <div className="text-center py-12">
+              <p className="text-red-600 dark:text-red-400">{featuredError}</p>
+            </div>
+          )}
+
+          {/* Featured Items Grid */}
+          {!featuredLoading && !featuredError && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredItems.length === 0 ? (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-gray-500 dark:text-gray-400">No featured items available at the moment.</p>
+                </div>
+              ) : (
+                featuredItems.slice(0, 8).map((item) => (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    onClick={() => handleItemClick(item)}
+                  />
+                ))
+              )}
+            </div>
+          )}
         </div>
       </section>
 

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Shield, Eye, Check, X, AlertTriangle, Users, Package, Activity } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { mockItems, mockUsers, mockSwapRequests } from '../data/mockData';
+import { useAdminItems, useAdminUsers, useIsAdmin } from '../hooks/useAdmin';
 import ItemCard from '../components/Common/ItemCard';
+import LoadingSpinner from '../components/Common/LoadingSpinner';
 
 interface AdminPanelProps {
   setCurrentPage: (page: string) => void;
@@ -13,23 +14,67 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ setCurrentPage, setSelectedItem
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('pending');
 
-  if (!user || user.email !== 'admin@rewear.com') {
+  // Check admin status
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
+
+  // Admin data hooks
+  const {
+    pendingItems,
+    loading: itemsLoading,
+    error: itemsError,
+    approveItem,
+    rejectItem,
+    deleteItem
+  } = useAdminItems();
+
+  const {
+    users: allUsers,
+    loading: usersLoading,
+    error: usersError
+  } = useAdminUsers();
+
+  // Loading state for admin check
+  if (adminLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // Access control
+  if (!user || !isAdmin) {
     setCurrentPage('landing');
     return null;
   }
 
-  const pendingItems = mockItems.filter(item => item.status === 'pending-approval');
-  const allUsers = mockUsers.filter(u => u.email !== 'admin@rewear.com');
-  const recentSwaps = mockSwapRequests.slice(0, 10);
-
-  const handleApproveItem = (itemId: string) => {
-    // In a real app, this would update the database
-    alert(`Item ${itemId} approved and published to marketplace`);
+  const handleApproveItem = async (itemId: string) => {
+    const success = await approveItem(itemId);
+    if (success) {
+      alert('Item approved and published to marketplace');
+    } else {
+      alert('Failed to approve item. Please try again.');
+    }
   };
 
-  const handleRejectItem = (itemId: string) => {
-    // In a real app, this would update the database
-    alert(`Item ${itemId} rejected. User will be notified.`);
+  const handleRejectItem = async (itemId: string) => {
+    const success = await rejectItem(itemId);
+    if (success) {
+      alert('Item rejected. User will be notified.');
+    } else {
+      alert('Failed to reject item. Please try again.');
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+      const success = await deleteItem(itemId);
+      if (success) {
+        alert('Item deleted successfully.');
+      } else {
+        alert('Failed to delete item. Please try again.');
+      }
+    }
   };
 
   const handleItemClick = (item: any) => {
@@ -40,7 +85,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ setCurrentPage, setSelectedItem
   const tabs = [
     { id: 'pending', label: 'Pending Items', count: pendingItems.length },
     { id: 'users', label: 'Users', count: allUsers.length },
-    { id: 'activity', label: 'Recent Activity', count: recentSwaps.length }
+    { id: 'activity', label: 'Recent Activity', count: 0 }
   ];
 
   return (
@@ -128,8 +173,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ setCurrentPage, setSelectedItem
             {activeTab === 'pending' && (
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">Items Pending Approval</h2>
-                
-                {pendingItems.length > 0 ? (
+
+                {itemsLoading ? (
+                  <div className="flex justify-center py-12">
+                    <LoadingSpinner />
+                  </div>
+                ) : itemsError ? (
+                  <div className="text-center py-12">
+                    <p className="text-red-600">{itemsError}</p>
+                  </div>
+                ) : pendingItems.length > 0 ? (
                   <div className="space-y-6">
                     {pendingItems.map((item) => (
                       <div key={item.id} className="border border-gray-200 rounded-lg p-4">
@@ -165,6 +218,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ setCurrentPage, setSelectedItem
                             >
                               <X className="h-4 w-4" />
                               <span>Reject</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors"
+                            >
+                              <AlertTriangle className="h-4 w-4" />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </div>
@@ -208,8 +269,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ setCurrentPage, setSelectedItem
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {allUsers.map((user) => {
-                        const userItemCount = mockItems.filter(item => item.uploaderId === user.id).length;
+                      {usersLoading ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-12 text-center">
+                            <LoadingSpinner />
+                          </td>
+                        </tr>
+                      ) : usersError ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-12 text-center text-red-600">
+                            {usersError}
+                          </td>
+                        </tr>
+                      ) : allUsers.map((user) => {
+                        const userItemCount = 0; // TODO: Implement user item count if needed
                         
                         return (
                           <tr key={user.id} className="hover:bg-gray-50">

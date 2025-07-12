@@ -1,8 +1,10 @@
 import React from 'react';
 import { User, Package, ArrowRightLeft, History, MapPin, Calendar, Heart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { mockItems, mockSwapRequests } from '../data/mockData';
+import { useUserItems } from '../hooks/useItems';
+import { useSwapRequests } from '../hooks/useSwaps';
 import ItemCard from '../components/Common/ItemCard';
+import LoadingSpinner from '../components/Common/LoadingSpinner';
 
 interface UserDashboardProps {
   setCurrentPage: (page: string) => void;
@@ -17,8 +19,10 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentPage, setSelect
     return null;
   }
 
-  const userItems = mockItems.filter(item => item.uploaderId === user.id);
-  const userSwaps = mockSwapRequests.filter(req => req.requesterId === user.id || req.ownerId === user.id);
+  // Use hooks for data fetching
+  const { items: userItems, loading: itemsLoading, error: itemsError } = useUserItems(user.id);
+  const { swaps: userSwaps, loading: swapsLoading, error: swapsError } = useSwapRequests(user.id);
+
   const pendingSwaps = userSwaps.filter(swap => swap.status === 'pending');
   const completedSwaps = userSwaps.filter(swap => swap.status === 'completed');
 
@@ -122,7 +126,13 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentPage, setSelect
               </button>
             </div>
 
-            {userItems.length > 0 ? (
+            {itemsLoading ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner />
+              </div>
+            ) : itemsError ? (
+              <p className="text-red-600 text-center py-8">{itemsError}</p>
+            ) : userItems.length > 0 ? (
               <div className="space-y-4">
                 {userItems.slice(0, 3).map((item) => (
                   <div key={item.id} className="flex items-center space-x-4 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer" onClick={() => handleItemClick(item)}>
